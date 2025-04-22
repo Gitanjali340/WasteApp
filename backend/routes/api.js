@@ -1,71 +1,56 @@
-const express = require('express');
-const router = express.Router();
-const User = require('../models/User');
-const BuyBin = require('../models/BuyBin');
+const express   = require('express');
+const router    = express.Router();
+const User      = require('../models/User');
+const BuyBin    = require('../models/BuyBin');
 const Complaint = require('../models/Complaint');
 
-// Create a user (register)
-router.post('/users', async (req, res) => {
-  const { name, role } = req.body;
+// GET /api/users
+router.get('/users', async (req, res) => {
+  console.log('📥 [GET] /api/users');
   try {
-    const user = await User.create({ name, role });
-    res.status(201).json(user);
+    const users = await User.find();
+    res.json(users);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error('❌ [GET] /api/users error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// Get all users (for admin)
-router.get('/users', async (req, res) => {
-  const users = await User.find();
-  res.json(users);
-});
-
-// Home Route
-router.get('/', (req, res) => {
-  res.send('Welcome to the Garbage Management API!');
-});
-
-// Analysis
-router.get('/analysis', (req, res) => {
-  res.send('Company Analysis data will be provided here.');
-});
-
-// Buy Bin Request
+// POST /api/buy-bin
 router.post('/buy-bin', async (req, res) => {
-  const { name, address } = req.body;
-
+  console.log('📥 [POST] /api/buy-bin', req.body);
   try {
-    const newRequest = new BuyBin({ name, address });
-    await newRequest.save();
-    res.json({ success: true, message: 'Buy bin request saved to database.' });
+    const record = new BuyBin(req.body);
+    const saved  = await record.save();
+    res.json({ success: true, message: 'Buy bin request saved to database.', data: saved });
   } catch (err) {
-    console.error('Error saving Buy Bin request:', err);
+    console.error('❌ [POST] /api/buy-bin error:', err);
     res.status(500).json({ success: false, message: 'Failed to save request.' });
   }
 });
 
-// Complaints
+// POST /api/complaint
 router.post('/complaint', async (req, res) => {
-  const { subject, description } = req.body;
-
+  console.log('📥 [POST] /api/complaint', req.body);
   try {
-    const newComplaint = new Complaint({ subject, description });
-    await newComplaint.save();
-    res.json({ success: true, message: 'Complaint saved to database.' });
+    const record = new Complaint(req.body);
+    const saved  = await record.save();
+    res.json({ success: true, message: 'Complaint saved to database.', data: saved });
   } catch (err) {
-    console.error('Error saving complaint:', err);
+    console.error('❌ [POST] /api/complaint error:', err);
     res.status(500).json({ success: false, message: 'Failed to save complaint.' });
   }
 });
 
-// Profile
+// GET /api        (Health)
+router.get('/', (req, res) => res.send('Welcome to the Garbage Management API!'));
+
+// GET /api/analysis
+router.get('/analysis', (req, res) => res.send('Company Analysis data will be provided here.'));
+
+// GET /api/profile  (Dummy)
 router.get('/profile', (req, res) => {
-  res.json({
-    name: "Gitanjali Pandey",
-    role: "Society Member",
-    requestsMade: 3
-  });
+  res.json({ name: "Gitanjali Pandey", role: "Society Member", requestsMade: 3 });
 });
 
 module.exports = router;

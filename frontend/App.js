@@ -75,7 +75,7 @@ function BuyBinScreen() {
 
   const handleSubmit = async () => {
     try {
-      const response = await fetch('http://192.168.0.9:3000/api/buy-bin', {
+      const response = await fetch('http://192.168.0.10:3000/api/buy-bin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, address })
@@ -104,7 +104,7 @@ function ComplaintsScreen() {
 
   const handleComplaint = async () => {
     try {
-      const response = await fetch('http://192.168.0.9:3000/api/complaint', {
+      const response = await fetch('http://192.168.0.10:3000/api/complaint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subject, description })
@@ -176,17 +176,59 @@ function RegisterScreen({ navigation }) {
   const [username, setUsername] = React.useState('');
   const [password, setPassword] = React.useState('');
 
-  const handleRegister = () => {
-    alert('Registration successful');
-    navigation.replace('Login');
+  const handleRegister = async () => {
+    if (!username.trim() || !password.trim()) {
+      alert('Both username and password are required.');
+      return;
+    }
+
+    console.log('[REGISTER] Sending payload:', { username, password });
+
+    try {
+      const response = await fetch('http://192.168.0.10:3000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+      console.log('[REGISTER] Response:', data);
+
+      if (data.success) {
+        alert('Success', 'Registration completed!');
+        navigation.navigate('Login');
+      } else {
+        alert('Error', data.message || 'Registration failed');
+      }
+    } catch (err) {
+      console.error('[REGISTER] Network error:', err);
+      alert('Error', 'Could not connect to server.');
+    }
   };
 
   return (
     <View style={styles.screen}>
       <Text style={styles.heading}>📝 Register</Text>
-      <TextInput style={styles.input} placeholder="Username" value={username} onChangeText={setUsername} />
-      <TextInput style={styles.input} placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
+      <TextInput
+        style={styles.input}
+        placeholder="Username"
+        value={username}
+        onChangeText={setUsername}
+        autoCapitalize="none"
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
       <Button title="Register" onPress={handleRegister} />
+      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+        <Text style={{ marginTop: 15, color: '#2196F3' }}>
+          Already have an account? Login
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -196,8 +238,8 @@ function CustomDrawerContent(props) {
 
   const handleLogout = async () => {
     try {
-      await fetch('http://192.168.0.9:3000/api/logout', {
-        method: 'POST',
+      await fetch('http://192.168.0.10:3000/api/logout', {
+        method: 'POST'
       });
     } catch (err) {
       console.error('Logout request failed', err);
