@@ -49,32 +49,40 @@ router.post('/register', async (req, res) => {
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
-  console.log('📥 [LOGIN] body:', req.body);
   const { username, password } = req.body;
 
-  // Validate
   if (!username || !password) {
-    return res
-      .status(400)
-      .json({ success: false, message: 'Username and password are required.' });
+    return res.status(400).json({ success: false, message: 'Username and password are required.' });
   }
 
   try {
     const user = await User.findOne({ username });
+
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res.status(401).json({ success: false, message: 'Invalid credentials.' });
     }
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials.' });
     }
 
-    console.log('✅ [LOGIN] successful for:', username);
-    res.json({ success: true, message: 'Login successful', user });
-  } catch (err) {
-    console.error('❌ [LOGIN] error:', err);
-    res.status(500).json({ success: false, message: 'Server error during login' });
+    user.LoginHistory.push(new Date());
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Login successful.',
+      user: {
+        username: user.username,
+        role: user.role,
+        lastLogin: user.lastLogin
+      }
+    });
+  } catch (error) {
+    console.error('[LOGIN] error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 

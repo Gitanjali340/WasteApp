@@ -151,13 +151,33 @@ function LoginScreen({ navigation }) {
   const [username, setUsername] = React.useState('');
   const [password, setPassword] = React.useState('');
 
-  const handleLogin = () => {
-    if (username && password) {
-      navigation.replace('Main', { user: { name: username, role: 'Society Member' } });
+  const handleLogin = async () => {
+  if (!username || !password) {
+    alert('Please enter credentials');
+    return;
+  }
+
+  try {
+    const response = await fetch('http://192.168.0.10:3000/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+
+    const data = await response.json();
+    console.log('[LOGIN] Response:', data);
+
+    if (data.success) {
+      navigation.replace('Main', { user: { name: data.user.username, role: data.user.role } });
     } else {
-      alert('Please enter credentials');
+      alert(data.message || 'Login failed');
     }
-  };
+  } catch (err) {
+    console.error('[LOGIN] Error:', err);
+    alert('Network error. Please try again.');
+  }
+};
+
 
   return (
     <View style={styles.screen}>
@@ -236,16 +256,11 @@ function RegisterScreen({ navigation }) {
 function CustomDrawerContent(props) {
   const user = props.route?.params?.user || { name: 'Guest', role: 'Visitor' };
 
-  const handleLogout = async () => {
-    try {
-      await fetch('http://192.168.0.10:3000/api/logout', {
-        method: 'POST'
-      });
-    } catch (err) {
-      console.error('Logout request failed', err);
-    }
-    props.navigation.replace('Login');
-  };
+  const handleLogout = () => {
+  // Optionally clear local state here (if you store tokens later)
+  props.navigation.replace('Login');
+};
+
 
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1, justifyContent: 'space-between' }}>
