@@ -33,3 +33,12 @@ app.use('/api', apiRoutes);
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
+
+// --- Add these lines with your other route imports ---
+const usersRoutes = require('./routes/users');
+const tasksRoutes = require('./routes/tasks');
+
+
+// --- Add these lines with your other app.use() statements ---
+app.use('/api/users', usersRoutes);
+app.use('/api/tasks', tasksRoutes);
