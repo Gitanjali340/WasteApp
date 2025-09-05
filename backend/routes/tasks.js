@@ -24,7 +24,6 @@ router.post('/assign', async (req, res) => {
 router.get('/:username', async (req, res) => {
     const { username } = req.params;
     try {
-        // ✨ CHANGE: Sort by 'createdAt' in descending order (-1) to show newest tasks first.
         const tasks = await Task.find({ assignedTo: username }).sort({ createdAt: -1 }); 
         res.json({ success: true, tasks });
     } catch (error) {
@@ -50,6 +49,48 @@ router.patch('/:id/complete', async (req, res) => {
         res.status(500).json({ success: false, message: 'Server error while updating task.' });
     }
 });
+
+// ✨ NEW: PUT /api/tasks/:id - Update a task's details
+router.put('/:id', async (req, res) => {
+    try {
+        const { description, deadline } = req.body;
+        const task = await Task.findById(req.params.id);
+
+        if (!task) {
+            return res.status(404).json({ success: false, message: 'Task not found.' });
+        }
+
+        // Update the fields if they are provided in the request
+        if (description) task.description = description;
+        if (deadline) task.deadline = deadline;
+        
+        const updatedTask = await task.save();
+        res.json({ success: true, message: 'Task updated successfully.', task: updatedTask });
+
+    } catch (error) {
+        console.error('[UPDATE TASK] error:', error);
+        res.status(500).json({ success: false, message: 'Server error while updating task.' });
+    }
+});
+
+// ✨ NEW: DELETE /api/tasks/:id - Delete a task
+router.delete('/:id', async (req, res) => {
+    try {
+        const task = await Task.findById(req.params.id);
+
+        if (!task) {
+            return res.status(404).json({ success: false, message: 'Task not found.' });
+        }
+
+        await task.deleteOne(); // Use deleteOne() on the document
+        res.json({ success: true, message: 'Task deleted successfully.' });
+
+    } catch (error) {
+        console.error('[DELETE TASK] error:', error);
+        res.status(500).json({ success: false, message: 'Server error while deleting task.' });
+    }
+});
+
 
 module.exports = router;
 

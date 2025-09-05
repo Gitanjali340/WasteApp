@@ -177,6 +177,7 @@ function EmployeeDetailScreen({ route }) {
     const [date, setDate] = React.useState(new Date());
     const [showPicker, setShowPicker] = React.useState(false);
     const [deadline, setDeadline] = React.useState('');
+    const [editingTask, setEditingTask] = React.useState(null); // ✨ NEW: State to hold the task being edited
 
     const fetchTasks = async () => {
         try {
@@ -191,36 +192,90 @@ function EmployeeDetailScreen({ route }) {
 
     React.useEffect(() => { fetchTasks(); }, [employee.username]);
 
-    const handleAssignTask = async () => {
+    // ✨ NEW: Function to handle saving both new and edited tasks
+    const handleSaveTask = async () => {
         if (!taskDescription.trim() || !deadline.trim()) {
             showAlert('Input Error', 'Please enter a task description and a deadline.');
             return;
         }
+
+        const taskData = {
+            description: taskDescription,
+            assignedTo: employee.username,
+            assignedBy: manager.name, 
+            deadline: deadline,
+        };
+
+        const isEditing = editingTask !== null;
+        const endpoint = isEditing ? `${API_URL}/api/tasks/${editingTask._id}` : `${API_URL}/api/tasks/assign`;
+        const method = isEditing ? 'PUT' : 'POST';
+
         try {
-            const response = await fetch(`${API_URL}/api/tasks/assign`, {
-                method: 'POST',
+            const response = await fetch(endpoint, {
+                method: method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    description: taskDescription,
-                    assignedTo: employee.username,
-                    assignedBy: manager.name, 
-                    deadline: deadline,
-                }),
+                body: JSON.stringify(taskData),
             });
             const data = await response.json();
             if (data.success) {
-                showAlert('Success', `Task assigned to ${employee.username}.`);
-                setTaskDescription('');
-                setDeadline('');
-                setDate(new Date());
+                showAlert('Success', `Task ${isEditing ? 'updated' : 'assigned'} successfully.`);
                 setModalVisible(false);
-                fetchTasks();
+                fetchTasks(); // Refresh the list
             } else {
-                showAlert('Error', data.message || 'Failed to assign task.');
+                showAlert('Error', data.message || `Failed to ${isEditing ? 'update' : 'assign'} task.`);
             }
         } catch (error) {
-            showAlert('Network Error', 'Could not assign task.');
+            showAlert('Network Error', `Could not ${isEditing ? 'update' : 'assign'} task.`);
         }
+    };
+
+    // ✨ NEW: Function to handle deleting a task
+    const handleDeleteTask = (taskId) => {
+        Alert.alert(
+            "Delete Task",
+            "Are you sure you want to permanently delete this task?",
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "OK", 
+                    onPress: async () => {
+                        try {
+                            const response = await fetch(`${API_URL}/api/tasks/${taskId}`, {
+                                method: 'DELETE',
+                            });
+                            const data = await response.json();
+                            if (data.success) {
+                                showAlert('Success', 'Task deleted.');
+                                fetchTasks(); // Refresh the list
+                            } else {
+                                showAlert('Error', data.message || 'Failed to delete task.');
+                            }
+                        } catch (error) {
+                            showAlert('Network Error', 'Could not delete task.');
+                        }
+                    } 
+                }
+            ]
+        );
+    };
+
+    // ✨ NEW: Functions to open the modal for either creating or editing
+    const openAssignModal = () => {
+        setEditingTask(null);
+        setTaskDescription('');
+        setDeadline('');
+        setDate(new Date());
+        setModalVisible(true);
+    };
+
+    const openEditModal = (task) => {
+        setEditingTask(task);
+        setTaskDescription(task.description);
+        const deadlineDate = new Date(task.deadline);
+        const formattedDeadline = deadlineDate.toISOString().split('T')[0];
+        setDeadline(formattedDeadline);
+        setDate(deadlineDate);
+        setModalVisible(true);
     };
     
     const onDateChange = (event, selectedDate) => {
@@ -241,7 +296,7 @@ function EmployeeDetailScreen({ route }) {
 
     return (
         <View style={styles.screen}>
-            <Button title="Assign New Task" onPress={() => setModalVisible(true)} />
+            <Button title="Assign New Task" onPress={openAssignModal} />
             <Text style={styles.subHeading}>Task History</Text>
             <FlatList
                 data={tasks}
@@ -250,9 +305,14 @@ function EmployeeDetailScreen({ route }) {
                     <View style={styles.taskCard}>
                         <Text style={styles.taskDescription}>{item.description}</Text>
                         <Text style={styles.taskDeadline}>Deadline: {new Date(item.deadline).toLocaleDateString()}</Text>
-                         <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                        <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
                             <Text style={styles.taskStatus}>Status: </Text>
                             <Text style={getStatusStyle(item.status)}>{item.status.toUpperCase()}</Text>
+                        </View>
+                        {/* ✨ NEW: Edit and Delete buttons */}
+                        <View style={styles.taskActions}>
+                            <Button title="Edit" onPress={() => openEditModal(item)} />
+                            <Button title="Delete" onPress={() => handleDeleteTask(item._id)} color="red" />
                         </View>
                     </View>
                 )}
@@ -266,27 +326,22 @@ function EmployeeDetailScreen({ route }) {
             >
                 <View style={styles.modalContainer}>
                     <View style={styles.modalView}>
-                        <Text style={styles.modalTitle}>Assign Task to {employee.username}</Text>
+                        <Text style={styles.modalTitle}>{editingTask ? 'Edit Task' : `Assign Task to ${employee.username}`}</Text>
                         <TextInput style={styles.input} placeholder="Task description..." value={taskDescription} onChangeText={setTaskDescription} />
-                        
                         <TouchableOpacity onPress={() => setShowPicker(true)} style={styles.datePickerButton}>
                             <Text style={styles.datePickerButtonText}>{deadline ? deadline : 'Select a Deadline'}</Text>
                         </TouchableOpacity>
-
                         {showPicker && (
                             <DateTimePicker
-                                testID="dateTimePicker"
                                 value={date}
                                 mode={'date'}
-                                is24Hour={true}
                                 display="default"
                                 onChange={onDateChange}
                             />
                         )}
-
                         <View style={styles.modalButtons}>
                             <Button title="Cancel" onPress={() => setModalVisible(false)} color="red" />
-                            <Button title="Assign" onPress={handleAssignTask} />
+                            <Button title={editingTask ? "Save Changes" : "Assign"} onPress={handleSaveTask} />
                         </View>
                     </View>
                 </View>
@@ -304,19 +359,14 @@ function EmployeeTasksScreen({ route }) {
         try {
             const response = await fetch(`${API_URL}/api/tasks/${user.name}`);
             const data = await response.json();
-            if (data.success) {
-                setTasks(data.tasks);
-            } else {
-                showAlert('Error', 'Could not fetch tasks.');
-            }
+            if (data.success) setTasks(data.tasks);
+            else showAlert('Error', 'Could not fetch tasks.');
         } catch (error) {
             showAlert('Network Error', 'Could not connect to server.');
         }
     };
 
-    React.useEffect(() => {
-        fetchTasks();
-    }, [user.name]);
+    React.useEffect(() => { fetchTasks(); }, [user.name]);
 
     const handleMarkAsDone = async (taskId) => {
         try {
@@ -569,6 +619,7 @@ const styles = StyleSheet.create({
   taskDescription: { fontSize: 16, marginBottom: 5 },
   taskDeadline: { fontSize: 14, color: '#666', marginBottom: 8 },
   taskStatus: { fontSize: 14, color: '#888' },
+  taskActions: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 10 },
   statusPending: { color: '#007bff', fontWeight: 'bold' },
   statusCompleted: { color: '#28a745', fontWeight: 'bold' },
   statusLate: { color: '#dc3545', fontWeight: 'bold' },
